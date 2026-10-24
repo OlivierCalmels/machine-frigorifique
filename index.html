@@ -64,6 +64,22 @@ header{display:flex;flex-direction:column;gap:6px}
 #cv{display:block;width:100%;touch-action:manipulation}
 .hud{font-size:12.5px;line-height:1.4;border-top:1px solid var(--line);padding:8px 6px 4px;min-height:3.2em}
 .hud b{font-family:var(--f-disp);font-weight:600;font-size:13px}
+.pins{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 6px 6px;border-top:1px solid var(--line)}
+.pins .pl{font:600 12px var(--f-disp);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.pinbtns{display:flex;flex-wrap:wrap;gap:4px}
+.pinbtns button{font:600 13px var(--f-disp);min-width:34px;height:28px;border-radius:14px;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);cursor:pointer;padding:0 8px}
+.pinbtns button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pins .sp{flex:1}
+.pininfo{padding:10px 6px 6px;display:flex;flex-direction:column;gap:8px}
+.pinhead{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.pinhead h3{font-size:18px}
+.pinhead .chip{font-size:12px}
+.pininfo p{margin:0;font-size:14.5px;max-width:78ch}
+.pingrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.pingrid div{background:var(--panel);padding:6px 9px;display:flex;flex-direction:column;gap:1px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.pingrid span{font-size:11.5px;color:var(--muted)}
+.pingrid b{font:500 15px var(--f-mono);font-variant-numeric:tabular-nums}
+.pinhint{font-size:12px;color:var(--muted)}
 .tip{position:absolute;z-index:3;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:var(--r);padding:8px 10px;font-size:12.5px;line-height:1.4;
   min-width:170px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
 .tip b{font-family:var(--f-disp);font-size:14px;font-weight:600}
@@ -214,7 +230,10 @@ section>h2{margin-bottom:10px}
 
     <div class="card circuit" id="circuitCard">
       <canvas id="cv" role="img" aria-label="Schéma animé du circuit frigorifique"></canvas>
+      <div class="pins" id="pins"><span class="pl">Arrêter le point</span><span class="pinbtns" id="pinBtns"></span><span class="sp"></span>
+        <button class="btn" id="pinPrev" type="button" aria-label="Point précédent">◀</button><button class="btn" id="pinNext" type="button" aria-label="Point suivant">▶</button><button class="btn" id="pinOff" type="button" hidden>Reprendre</button></div>
       <div class="hud" id="hud" aria-live="off"><b>Particule suivie</b></div>
+      <div class="pininfo" id="pininfo" aria-live="polite" hidden></div>
       <div class="tip" id="tip" hidden></div>
       <div class="legend">
         <span class="scale"><span id="tmin" class="num"></span><span class="bar" id="tbar"></span><span id="tmax" class="num"></span> température</span>
@@ -224,7 +243,7 @@ section>h2{margin-bottom:10px}
         <span>● liquide &nbsp;○ vapeur</span>
       </div>
       <div class="ctl-row">
-        <span class="fluidinfo">Survolez ou touchez le tube pour lire l'état local. Vitesses d'écoulement compressées pour rester lisibles.</span>
+        <span class="fluidinfo">Survolez le tube pour lire l'état local, cliquez pour y arrêter le point. Vitesses d'écoulement compressées pour rester lisibles.</span>
         <button class="btn" id="play" type="button">Pause</button>
       </div>
     </div>
@@ -735,7 +754,10 @@ function render(){
     if(liq){ ctx.fillStyle=TH.pliq; ctx.beginPath(); ctx.arc(x,y,1.4,0,6.283); ctx.fill(); }
     else { ctx.strokeStyle=TH.pvap; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(x,y,2.1,0,6.283); ctx.stroke(); } }
   for(const cp of g.comps){ ctx.save(); ctx.translate(cp.x,cp.y); ctx.rotate(crank); ctx.strokeStyle=TH.muted; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(cp.r*0.18,0,cp.r*0.42,0,6.283); ctx.stroke(); ctx.restore(); }
-  if(tracer){ ctx.fillStyle=TH.accent; ctx.strokeStyle=TH.panel; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(tracer.x,tracer.y,5,0,6.283); ctx.fill(); ctx.stroke(); updateTracer(tracer.s); }
+  const PR=resolvePin();
+  if(PR){ const s=PR.s; ctx.strokeStyle=TH.accent; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(s.x,s.y,10+2*Math.sin(performance.now()/200),0,6.283); ctx.stroke();
+    ctx.fillStyle=TH.accent; ctx.strokeStyle=TH.panel; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(s.x,s.y,6,0,6.283); ctx.fill(); ctx.stroke(); }
+  else if(tracer){ ctx.fillStyle=TH.accent; ctx.strokeStyle=TH.panel; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(tracer.x,tracer.y,5,0,6.283); ctx.fill(); ctx.stroke(); updateTracer(tracer.s); }
   if(hoverS){ ctx.strokeStyle=TH.ink; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(hoverS.x,hoverS.y,g.tw/2+5,0,6.283); ctx.stroke(); }
   if(focusId && g.mk[focusId]){ const s=g.mk[focusId].s; ctx.strokeStyle=TH.accent; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(s.x,s.y,9+2*Math.sin(performance.now()/180),0,6.283); ctx.stroke(); }
 }
@@ -747,6 +769,7 @@ function phaseName(st,sg){ const r=sg.role;
 function stateHTML(s){ const st=s.st, sg=s.seg;
   return `<b>${sg.name}</b> · ${phaseName(st,sg)}<span class="num">T ${fmt(st.T)} °C · P ${fmt(bar(st.P),2)} bar</span><span class="num">h ${fmt(st.h)} kJ/kg${st.phase==="mix"?` · x ${fmt(st.x,2)}`:""}</span>${st.phase==="mix"?`<span class="num">vide ${fmt(st.alpha*100,0)} % du volume</span>`:""}<span class="num">ρ ${fmt(st.rho,st.rho<100?1:0)} kg/m³</span>`; }
 function updateTracer(s){
+  if(PIN) return;
   const M=PHM.ph, dot=$("ph-tr"); if(dot && M){ dot.setAttribute("cx",M.X(s.st.h)); dot.setAttribute("cy",M.Y(s.st.P)); }
   if(++hudTick%6) return; const st=s.st, sg=s.seg;
   $("hud").innerHTML=`<b>Particule suivie</b> (point orange) · ${sg.name.toLowerCase()}, ${phaseName(st,sg)} · <span class="num">${fmt(st.T)} °C · ${fmt(bar(st.P),2)} bar · h ${fmt(st.h,0)} kJ/kg${st.phase==="mix"?` · x ${fmt(st.x,2)}`:""}</span>`;
@@ -762,10 +785,77 @@ function showHover(s){ hoverS=s; const m=$("ph-hov");
 cv.addEventListener("pointermove",e=>{ const r=cv.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top; let best=null, bd=1e9;
   for(const s of allSamples()){ const d=(s.x-x)**2+(s.y-y)**2; if(d<bd){bd=d;best=s;} } showHover(best && bd<20*20 ? best : null); });
 cv.addEventListener("pointerleave",()=>showHover(null));
+cv.addEventListener("click",e=>{ if(!G) return; const r=cv.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top;
+  for(const id in G.mk){ const s=G.mk[id].s; if((s.x-x)**2+(s.y-y)**2<11*11){ pinAt({id}); return; } }
+  let best=null, bd=1e9; for(const s of allSamples()){ const d=(s.x-x)**2+(s.y-y)**2; if(d<bd){bd=d;best=s;} }
+  if(best && bd<20*20) pinAt({seg:best.seg.id,f:best.f}); });
 const phSvg=$("ph");
 phSvg.addEventListener("pointermove",e=>{ const M=PHM.ph; if(!M||!G) return; const pt=phSvg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; const q=pt.matrixTransform(phSvg.getScreenCTM().inverse());
   let best=null, bd=1e9; for(const s of allSamples()){ const d=(M.X(s.st.h)-q.x)**2+(M.Y(s.st.P)-q.y)**2; if(d<bd){bd=d;best=s;} } showHover(best && bd<16*16 ? best : null); });
 phSvg.addEventListener("pointerleave",()=>showHover(null));
+phSvg.addEventListener("click",e=>{ const g=e.target.closest&&e.target.closest("g[data-pt]"); if(g){ pinAt({id:g.dataset.pt}); return; }
+  const M=PHM.ph; if(!M||!G) return; const pt=phSvg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; const q=pt.matrixTransform(phSvg.getScreenCTM().inverse());
+  let best=null, bd=1e9; for(const s of allSamples()){ const d=(M.X(s.st.h)-q.x)**2+(M.Y(s.st.P)-q.y)**2; if(d<bd){bd=d;best=s;} } if(best && bd<16*16) pinAt({seg:best.seg.id,f:best.f}); });
+$("tbody").addEventListener("click",e=>{ const tr=e.target.closest("tr[data-pt]"); if(tr) pinAt({id:tr.dataset.pt}); });
+$("pinOff").addEventListener("click",()=>{ PIN=null; refreshPin(); });
+$("pinPrev").addEventListener("click",()=>stepPin(-1)); $("pinNext").addEventListener("click",()=>stepPin(1));
+function stepPin(d){ const o=C.order; let i=PIN&&PIN.id?o.indexOf(PIN.id):-1; i = i<0 ? (d>0?0:o.length-1) : (i+d+o.length)%o.length; pinAt({id:o[i]}); }
+
+/* ---------- pinned point ---------- */
+let PIN=null;
+function pinAt(spec){ PIN=spec; refreshPin(); }
+function resolvePin(){ if(!PIN||!G) return null; if(PIN.id){ return G.mk[PIN.id] ? {s:G.mk[PIN.id].s,id:PIN.id} : null; }
+  const sg=G.byId[PIN.seg]; if(!sg) return null; const i=Math.min(sg.S.length-1,Math.max(0,Math.round(PIN.f*(sg.S.length-1)))); return {s:sg.S[i]}; }
+function buildPins(){ if(PIN&&PIN.id&&!C.pts[PIN.id]) PIN=null; if(PIN&&PIN.seg&&G&&G.kind!==C.mode) PIN=null;
+  $("pinBtns").innerHTML=C.order.map(id=>`<button type="button" data-id="${id}" title="${C.pts[id].name}">${id}</button>`).join("");
+  $("pinBtns").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>pinAt({id:b.dataset.id}))); }
+function refreshPin(){ const R=resolvePin(); $("pininfo").hidden=!R; $("hud").hidden=!!R; $("pinOff").hidden=!R;
+  document.querySelectorAll("#pinBtns button").forEach(b=>b.setAttribute("aria-pressed",String(!!R&&R.id===b.dataset.id)));
+  setFocus(null); if(!R){ if(!playing) render(); return; }
+  const st=R.id?C.pts[R.id]:R.s.st; $("pininfo").innerHTML=pinHTML(R,st);
+  const M=PHM.ph, dot=$("ph-tr"); if(dot&&M){ dot.setAttribute("cx",M.X(st.h)); dot.setAttribute("cy",M.Y(st.P)); }
+  if(!playing) render(); }
+function pinHTML(R,st){
+  const c=C, F=c.F, s=R.s, sg=s.seg, Ts=st.Tsat ?? F.TsatP(st.P), sat=F.sat(Ts);
+  const ph = st.phase==="sat" ? (st.x===1?"vsat":"lsat") : st.phase;
+  const phTxt={vap:"vapeur surchauffée",liq:"liquide sous-refroidi",mix:"mélange liquide-vapeur",vsat:"vapeur saturée",lsat:"liquide saturé"}[ph];
+  const x = ph==="mix"?st.x:(ph==="vsat"?1:(ph==="lsat"?0:null));
+  const alpha = x===null?null:(x<=0?0:(x>=1?1:1/(1+((1-x)/x)*Math.pow(sat.rv/sat.rl,2/3))));
+  const m = G.loops.filter(l=>l.segs.includes(sg.id)).reduce((a,l)=>a+l.m,0);
+  const cell=(k,v)=>`<div><span>${k}</span><b>${v}</b></div>`;
+  let g=cell("Température",`${fmt(st.T)} °C`)+cell("Pression absolue",`${fmt(bar(st.P),3)} bar`)+cell("Pression relative (manomètre)",`${fmt(bar(st.P)-1.013,2)} bar`)+cell("Température de saturation",`${fmt(Ts)} °C`);
+  if(ph==="vap") g+=cell("Surchauffe",`${fmt(st.T-Ts)} K`);
+  else if(ph==="liq") g+=cell("Sous-refroidissement",`${fmt(Ts-st.T)} K`);
+  if(x!==null) g+=cell("Titre en vapeur x",`${fmt(x,3)}`)+cell("Vapeur en volume (taux de vide)",`${fmt(alpha*100,0)} %`);
+  g+=cell("Enthalpie h",`${fmt(st.h,1)} kJ/kg`)+cell("Entropie s",`${fmt(st.s,4)} kJ/(kg·K)`)+cell("Masse volumique ρ",`${fmt(st.rho,st.rho<100?2:1)} kg/m³`)+cell("Volume massique v",`${fmt(1000/st.rho,1000/st.rho<10?3:1)} L/kg`);
+  if(m>0) g+=cell("Débit massique",`${fmt(m*1000,1)} g/s`)+cell("Débit volumique",`${fmt(m/st.rho*3600,m/st.rho*3600<1?3:2)} m³/h`);
+  const title = R.id ? `Point ${R.id} · ${st.name}` : sg.name;
+  return `<div class="pinhead"><h3>${title}</h3><span class="chip">${phTxt}</span>${R.id?"":`<span class="chip">${phaseName(st,sg)}</span>`}</div>
+    <p>${explainPt(st,sg,s.f,ph,Ts,x)}</p><div class="pingrid">${g}</div><div class="pinhint">Cliquez ailleurs sur le tube ou le diagramme pour déplacer le point, ou utilisez ◀ ▶ pour passer d'un point du cycle au suivant.</div>`;
+}
+function explainPt(st,sg,f,ph,Ts,x){
+  const r=sg.role, T=fmt(st.T), dSH=fmt(st.T-Ts,1), dSC=fmt(Ts-st.T,1), Pb=fmt(bar(st.P),2), pct=v=>fmt(v*100,0);
+  const shTxt = st.T-Ts<0.3 ? "saturée" : `surchauffée de ${dSH} K`;
+  if(r==="comp"){ if(f<0.05) return `Entrée du ${sg.name.toLowerCase()} : la vapeur arrive ${shTxt}, sans aucune goutte de liquide. Le compresseur va la comprimer et, ce faisant, la chauffer.`;
+    if(f>0.95) return `Sortie du ${sg.name.toLowerCase()} : la vapeur a été comprimée jusqu'à ${Pb} bar et chauffée par le travail reçu. Elle est ${dSH} K au-dessus de sa température de saturation (${fmt(Ts)} °C) à cette pression.`;
+    return `Au milieu de la compression : pression et température montent ensemble ; l'enthalpie augmente du travail fourni par le moteur.`; }
+  if(r==="valve") return f<0.5 ? `Entrée du ${sg.name.toLowerCase()} : liquide à ${T} °C, ${ph==="liq"?`sous-refroidi de ${dSC} K`:"saturé"}. Le passage étroit va faire chuter la pression.`
+    : `Sortie du ${sg.name.toLowerCase()} : la pression est tombée à ${Pb} bar. ${pct(x)} % du liquide s'est vaporisé d'un coup, ce qui a refroidi l'ensemble à ${T} °C. L'enthalpie n'a pas changé pendant la détente.`;
+  if(r==="bottle") return `Dans la bouteille intermédiaire à ${fmt(Ts)} °C : le liquide tombe au fond, la vapeur reste en haut et part vers le compresseur HP.`;
+  if(r==="coil") return `Dans le serpentin plongé dans la bouteille : le liquide haute pression cède de la chaleur au liquide de la bouteille, qui bout à ${fmt(C.Ti)} °C.`;
+  if(r==="cond"){ if(ph==="vap") return `Désurchauffe dans le condenseur : la vapeur cède d'abord sa surchauffe à l'air. Elle est encore ${dSH} K au-dessus de ${fmt(Ts)} °C, sa température de condensation.`;
+    if(ph==="vsat") return `Vapeur saturée : la désurchauffe est terminée. La condensation commence et la température restera à ${fmt(Ts)} °C jusqu'à la dernière goutte.`;
+    if(ph==="lsat") return `Liquide saturé : la dernière bulle vient de se condenser. Toute la chaleur latente a été rendue à l'air ; le sous-refroidissement commence.`;
+    if(ph==="liq") return `Sous-refroidissement : le liquide continue à se refroidir, ${dSC} K sous sa température de condensation. Il arrivera au détendeur sans bulle.`;
+    return `Condensation à ${fmt(Ts)} °C constant : il reste ${pct(x)} % de vapeur en masse, qui occupe encore ${pct(1/(1+((1-x)/Math.max(x,1e-4))*Math.pow(st.rv/st.rl,2/3)))} % du volume. Chaque kilo condensé rend sa chaleur latente à l'air.`; }
+  if(r==="evap"){ if(ph==="vap") return `Surchauffe : tout est vapeur, ${dSH} K au-dessus de la température d'évaporation. C'est la marge de sécurité du compresseur.`;
+    if(ph==="vsat") return `Vapeur saturée : la dernière goutte vient de s'évaporer. Toute la chaleur prise à l'air a servi à faire bouillir le liquide ; la surchauffe commence.`;
+    return `Évaporation à ${fmt(Ts)} °C constant : ${pct(x)} % de la masse est déjà vapeur. La chaleur prise à l'air fait bouillir le liquide restant ; la température ne bouge pas tant qu'il reste du liquide.`; }
+  if(ph==="liq"||ph==="lsat") return `Liquide ${ph==="liq"?`sous-refroidi de ${dSC} K`:"saturé"} à ${Pb} bar. Pas encore de bulle : il est prêt pour la détente.`;
+  if(ph==="mix") return `Mélange liquide-vapeur juste après une détente : ${pct(x)} % de vapeur en masse, mais la vapeur occupe déjà l'essentiel du volume du tube.`;
+  if(ph==="vsat") return `Vapeur saturée à ${fmt(Ts)} °C : la moindre perte de chaleur ferait apparaître du liquide.`;
+  return `Vapeur ${shTxt} par rapport à sa température de saturation (${fmt(Ts)} °C) à ${Pb} bar.`;
+}
 
 /* ---------- log P-h ---------- */
 const PHM={};
@@ -962,7 +1052,7 @@ function update(reset){
   C=computeCycle(P); A=computeAir(C);
   const temps=[C.To-4,C.Tdis+4,A.cin.T,A.cout.T]; if(A.ok) temps.push(A.ein.T,A.eout.T);
   TR=[Math.floor(Math.min(...temps)/5)*5,Math.ceil(Math.max(...temps)/5)*5];
-  drawPH("ph",C); drawPsy(C,A); drawPanels(C,A); bindFocus();
+  drawPH("ph",C); drawPsy(C,A); drawPanels(C,A); buildPins(); bindFocus();
   layout(!!reset);
 }
 function layout(reset){
@@ -974,10 +1064,10 @@ function layout(reset){
   G = bi ? geoBi(W,H,C) : geoMono(W,H,C); G.kind=C.mode;
   sampleGeo(G); attachGeo(G,C); hoverS=null; tip.hidden=true; bub=[];
   if(old && !reset && old.kind===G.kind && old.parts){ G.parts=old.parts.map(p=>{ const li=old.loops.indexOf(p.lp); const lp=G.loops[li]; return {...p,lp,u:p.u/p.lp.L*lp.L}; }); } else initParticles(G);
-  drawLayers(); render();
+  drawLayers(); render(); refreshPin();
 }
 function bindFocus(){ document.querySelectorAll("#ph [data-pt], #tbody [data-pt]").forEach(el=>{ el.addEventListener("pointerenter",()=>setFocus(el.dataset.pt)); el.addEventListener("pointerleave",()=>setFocus(null)); }); }
-function setFocus(id){ focusId=id; document.querySelectorAll("#tbody tr").forEach(tr=>tr.classList.toggle("on",tr.dataset.pt===id));
+function setFocus(id){ focusId=id ?? (PIN&&PIN.id) ?? null; id=focusId; document.querySelectorAll("#tbody tr").forEach(tr=>tr.classList.toggle("on",tr.dataset.pt===id));
   document.querySelectorAll("#ph g[data-pt] circle").forEach(cc=>cc.classList.toggle("on",cc.parentElement.dataset.pt===id)); if(!playing) render(); }
 $("play").addEventListener("click",e=>{ playing=!playing; e.target.textContent=playing?"Pause":"Lecture"; });
 if(!playing) $("play").textContent="Lecture";
@@ -988,7 +1078,7 @@ new ResizeObserver(()=>{ clearTimeout(rebuildTimer); rebuildTimer=setTimeout(()=
    ===================================================================== */
 const TOUR={scene:"fridge",mode:"cool",step:0,auto:false,autoT:0};
 const TOURP={
-  fridge:{mode:"mono",f:"R600a",To:-25,Tk:40,SH:8,SC:3,eta:0.60,Q0:0.08,Tai:-18,RHi:80,BF:0.4,Text:25,RHe:50},
+  fridge:{mode:"mono",f:"R600a",To:-12,Tk:40,SH:6,SC:3,eta:0.60,Q0:0.08,Tai:4,RHi:70,BF:0.4,Text:25,RHe:50},
   cool:{mode:"mono",f:"R32",To:8,Tk:46,SH:5,SC:4,eta:0.70,Q0:3.5,Tai:27,RHi:50,BF:0.2,Text:35,RHe:40},
   heat:{mode:"mono",f:"R32",To:-3,Tk:42,SH:5,SC:4,eta:0.68,Q0:3.2,Tai:7,RHi:85,BF:0.25,Text:20,RHe:45}
 };
@@ -1031,7 +1121,7 @@ function serp3(axis,a0,a1,bs,fix){ const pts=[]; bs.forEach((bv,i)=>{ const s=i%
 
 function tourDefFridge(c,a){
   const F=c.F, h=c.h, To=c.To, Tk=c.Tk;
-  const evRows=[1.68,1.60,1.52,1.44,1.36], cdRows=[]; for(let y=1.72;y>=0.40;y-=0.0943) cdRows.push(+y.toFixed(3));
+  const evRows=[1.62,1.52,1.42,1.32,1.22], cdRows=[]; for(let y=1.72;y>=0.40;y-=0.0943) cdRows.push(+y.toFixed(3));
   const ev=serp3("x",-0.22,0.22,evRows,(x,y)=>[x,y,-0.235]);
   const cd=serp3("x",-0.24,0.24,cdRows,(x,y)=>[x,y,-0.345]);
   const cdEnd=cd[cd.length-1];
@@ -1040,20 +1130,20 @@ function tourDefFridge(c,a){
   const capSt=f=>{ const P=Math.exp(Math.log(PkS)+(Math.log(PoS)-Math.log(PkS))*Math.pow(f,1.7)); return F.stateHT(h.h3,F.TsatP(P)); };
   const segs=[
     {id:"evp",role:"evap",name:"Évaporateur",pts:ev,r:0.011,rr:0.04,st:rampSt(F,h.h4,h.h1,To)},
-    {id:"suc",role:"vap",name:"Conduite d'aspiration",pts:[[0.22,1.36,-0.235],[0.22,1.36,-0.285],[0.22,0.30,-0.285],[0.15,0.30,-0.22],[0.15,0.24,-0.22]],r:0.011,rr:0.04,st:lineSt(F,h.h1,To)},
+    {id:"suc",role:"vap",name:"Conduite d'aspiration",pts:[[0.22,1.22,-0.235],[0.22,1.22,-0.285],[0.22,0.30,-0.285],[0.15,0.30,-0.22],[0.15,0.24,-0.22]],r:0.011,rr:0.04,st:lineSt(F,h.h1,To)},
     {id:"cmp",role:"comp",name:"Compresseur",pts:[[0.15,0.24,-0.22],[0.15,0.14,-0.22],[0.06,0.14,-0.22],[0.06,0.24,-0.22]],r:0.011,rr:0.03,hidden:true,st:compSt(F,h.h1,h.h2,To,Tk)},
     {id:"dis",role:"vap",name:"Conduite de refoulement",pts:[[0.06,0.24,-0.22],[0.06,0.28,-0.22],[-0.27,0.28,-0.22],[-0.27,0.28,-0.345],[-0.27,1.72,-0.345],[-0.24,1.72,-0.345]],r:0.009,rr:0.03,st:lineSt(F,h.h2,Tk)},
     {id:"cnd",role:"cond",name:"Condenseur",pts:cd,r:0.009,rr:0.05,st:rampSt(F,h.h2,h.h3,Tk)},
     {id:"drv",role:"liq",name:"Filtre déshydrateur",pts:[cdEnd,[cdEnd[0],0.24,-0.345]],r:0.012,rr:0.02,st:lineSt(F,h.h3,Tk)},
-    {id:"cap",role:"cap",name:"Capillaire",pts:[[cdEnd[0],0.24,-0.345],[cdEnd[0],0.17,-0.30],[helix[0][0],0.14,helix[0][2]],...helix,[0.19,0.22,-0.285],[0.19,1.75,-0.285],[-0.22,1.75,-0.285],[-0.22,1.68,-0.285],[-0.22,1.68,-0.235]],r:0.006,rr:0.03,st:capSt}];
+    {id:"cap",role:"cap",name:"Capillaire",pts:[[cdEnd[0],0.24,-0.345],[cdEnd[0],0.17,-0.30],[helix[0][0],0.14,helix[0][2]],...helix,[0.19,0.22,-0.285],[0.19,1.68,-0.285],[-0.22,1.68,-0.285],[-0.22,1.62,-0.285],[-0.22,1.62,-0.235]],r:0.006,rr:0.03,st:capSt}];
   const loop=["evp","suc","cmp","dis","cnd","drv","cap"].map(id=>({id,rev:false}));
   const views={overview:[1.3,0.45,-0.7],evin:[0.45,0.15,1],evap:[0.35,0.2,1],sh:[1,0.25,0.35],comp:[0.9,0.45,-1],desup:[-0.25,0.15,-1],cond:[0.15,0.1,-1],sub:[-0.3,0.2,-1],exp:[-0.8,0.25,-1]};
   return {segs,loop,views,scale:{ds:0.006,spacing:0.011,base:0.05,minR:0.12,Lmax:0.7,overR:1.25},target0:V3(0,0.9,0),
     build:(grp)=>buildFridgeStatic(grp,c,a), labels:[
-      {k:"evap",t:"Évaporateur (congélateur)",p:V3(0,1.76,-0.24)},{k:"comp",t:"Compresseur",p:V3(0.1,0.33,-0.22)},
+      {k:"evap",t:"Évaporateur (paroi du fond)",p:V3(0,1.70,-0.24)},{k:"comp",t:"Compresseur",p:V3(0.1,0.33,-0.22)},
       {k:"cond",t:"Condenseur (grille arrière)",p:V3(0,1.82,-0.35)},{k:"drier",t:"Filtre déshydrateur",p:V3(-0.24,0.42,-0.36)},
       {k:"cap",t:"Capillaire",p:V3(-0.10,0.22,-0.20)},{k:"suc",t:"Aspiration",p:V3(0.22,0.9,-0.285)},
-      {k:"room",t:`Cuisine ${fmt(c.p.Text,0)} °C`,p:V3(-0.45,1.0,0.4)},{k:"box",t:`Congélateur ${fmt(c.p.Tai,0)} °C`,p:V3(0,1.5,0.2)}],
+      {k:"room",t:`Cuisine ${fmt(c.p.Text,0)} °C`,p:V3(-0.75,1.3,0.6)},{k:"box",t:`Intérieur ${fmt(c.p.Tai,0)} °C`,p:V3(0,0.80,0.22)}],
     air:[{n:14,T0:c.p.Text,T1:a.cout.T,from:(i)=>V3(-0.24+0.48*(i%7)/6,0.35,-0.40-(i>6?0.02:0)),dir:V3(0,1,0),len:1.5,speed:0.18,size:0.018}],
     comps:{comp:"comp",drier:"drv",cap:"cap"}};
 }
@@ -1062,11 +1152,12 @@ function buildFridgeStatic(grp,c,a){
   const edges=(geo,pos,col)=>{ const e=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.55})); e.position.copy(pos); grp.add(e); return e; };
   const ink=new THREE.Color(TH.muted);
   const cab=new THREE.BoxGeometry(0.60,1.80,0.62); const cm=new THREE.Mesh(cab,glass(0xffffff,0.07)); cm.position.set(0,0.9,0); grp.add(cm); edges(cab,V3(0,0.9,0),ink);
-  const inner=new THREE.BoxGeometry(0.50,0.48,0.50); edges(inner,V3(0,1.50,0.03),ink);
-  const inner2=new THREE.BoxGeometry(0.50,0.92,0.50); edges(inner2,V3(0,0.74,0.03),ink);
+  const inner=new THREE.BoxGeometry(0.50,1.40,0.50); edges(inner,V3(0,1.03,0.03),ink);
   const shelf=new THREE.Mesh(new THREE.BoxGeometry(0.48,0.006,0.46),glass(0xbfd6e6,0.25)); shelf.position.set(0,0.62,0.04); grp.add(shelf);
-  const s2=shelf.clone(); s2.position.y=0.92; grp.add(s2);
-  const food=[[0.10,0.66,0.08,0.12,0.08,0.10,0xd9a441],[-0.12,0.69,0.1,0.07,0.14,0.07,0xf1f1f1],[0.0,0.96,0.05,0.18,0.07,0.12,0x8fb573],[-0.1,1.36,0.06,0.16,0.08,0.18,0xcfe3f2],[0.12,1.35,0.08,0.12,0.06,0.14,0xe8c6c6]];
+  const s2=shelf.clone(); s2.position.y=0.92; grp.add(s2); const s3=shelf.clone(); s3.position.y=1.20; grp.add(s3);
+  const drawer=new THREE.BoxGeometry(0.46,0.18,0.42); const dm=new THREE.Mesh(drawer,glass(0xcfe3d0,0.18)); dm.position.set(0,0.44,0.06); grp.add(dm); edges(drawer,dm.position,ink);
+  const cold=new THREE.Mesh(new THREE.BoxGeometry(0.48,0.48,0.004),glass(0xe3eef5,0.45)); cold.position.set(0,1.42,-0.243); grp.add(cold);
+  const food=[[0.10,0.66,0.08,0.12,0.08,0.10,0xd9a441],[-0.12,0.69,0.1,0.07,0.14,0.07,0xf1f1f1],[0.0,0.96,0.05,0.18,0.07,0.12,0x8fb573],[-0.1,1.24,0.10,0.14,0.10,0.14,0xe8c6c6],[0.13,1.25,0.10,0.08,0.18,0.08,0x9fc3d9],[0.08,0.40,0.08,0.10,0.08,0.10,0xd96b4a],[-0.10,0.40,0.10,0.12,0.07,0.10,0x8fb573]];
   food.forEach(f=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(f[3],f[4],f[5]),new THREE.MeshStandardMaterial({color:f[6],roughness:0.7,transparent:true,opacity:0.45,depthWrite:false})); m.position.set(f[0],f[1]+f[4]/2-0.04,f[2]); grp.add(m); });
   const dark=new THREE.MeshStandardMaterial({color:0x2a3138,roughness:0.5,metalness:0.3,transparent:true,opacity:0.6});
   const comp=new THREE.Group(); const body=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.085,0.13,28),dark); body.position.y=0.115; comp.add(body);
@@ -1236,25 +1327,25 @@ function tourSteps(){
     return {ev0,ev1,sat:sat<0?ev1:sat,c0,c1,k0,k1,hv:hv<0?k0:hv,hl:hl<0?k1:hl,x0,x1,v1}; })() : null;
   const p=c.pts, To=c.To, Tk=c.Tk, Po=bar(c.Po), Pk=bar(c.Pk);
   const fl = fridge ? "isobutane (R600a)" : "R32";
-  const coldName = fridge?"le congélateur":(heat?"l'air extérieur":"la pièce"), hotName = fridge?"la cuisine":(heat?"la pièce":"l'air extérieur");
-  const evapWhere = fridge?"dans les tubes collés à la paroi du congélateur":(heat?"dans la batterie de l'unité extérieure":"dans la batterie de l'unité intérieure");
+  const coldName = fridge?"l'intérieur du réfrigérateur":(heat?"l'air extérieur":"la pièce"), hotName = fridge?"la cuisine":(heat?"la pièce":"l'air extérieur");
+  const evapWhere = fridge?"dans les tubes collés derrière la paroi du fond du réfrigérateur":(heat?"dans la batterie de l'unité extérieure":"dans la batterie de l'unité intérieure");
   const condWhere = fridge?"dans la grille noire à l'arrière":(heat?"dans la batterie de l'unité intérieure":"dans la batterie de l'unité extérieure");
   const Tcold = fridge?c.p.Tai:(heat?c.p.Tai:c.p.Tai), Thot=c.p.Text;
   const S=[];
   const chipsOf=(pt,extra=[])=>[`${fmt(pt.T)} °C`,`${fmt(bar(pt.P),2)} bar`,...extra];
   S.push({k:"overview",kicker:"Vue d'ensemble",title:fridge?"Un réfrigérateur déplace la chaleur":(heat?"Pompe à chaleur : on chauffe la maison":"Climatisation : on refroidit la pièce"),
-    text:fridge?`Un réfrigérateur ne fabrique pas de froid : il <b>transporte la chaleur</b> de l'intérieur vers la cuisine. Le fluide, de l'${fl}, tourne en boucle et change d'état : il <b>bout</b> dans le congélateur en prenant de la chaleur, puis se <b>condense</b> dans la grille arrière en la rendant. Le compresseur fait circuler le tout et le capillaire fait chuter la pression.`
+    text:fridge?`Un réfrigérateur ne fabrique pas de froid : il <b>transporte la chaleur</b> de l'intérieur vers la cuisine. Le fluide, de l'${fl}, tourne en boucle et change d'état : il <b>bout</b> dans l'évaporateur, derrière la paroi du fond, en prenant la chaleur des aliments, puis se <b>condense</b> dans la grille arrière en la rendant. Le compresseur fait circuler le tout et le capillaire fait chuter la pression.`
       : heat?`En hiver, la même machine fonctionne à l'envers. L'unité extérieure devient l'<b>évaporateur</b> : le fluide y bout à ${fmt(To,0)} °C et capte la chaleur de l'air dehors, pourtant à ${fmt(c.p.Tai,0)} °C. L'unité intérieure devient le <b>condenseur</b> et chauffe la pièce. C'est la <b>vanne 4 voies</b> qui inverse le sens. Pour 1 kWh d'électricité, la pièce reçoit ${fmt(c.Qk/c.W,1)} kWh de chaleur.`
       : `En été, l'unité intérieure est l'<b>évaporateur</b> : le fluide y bout à ${fmt(To,0)} °C et prend la chaleur de la pièce. L'unité extérieure est le <b>condenseur</b> : elle rejette cette chaleur dehors. Les deux unités sont reliées par deux tubes de cuivre, les <b>liaisons frigorifiques</b>. Le compresseur et le détendeur sont dans l'unité extérieure.`,
     chips:[`fluide ${fridge?"R600a":"R32"}`,`évaporation ${fmt(To,0)} °C`,`condensation ${fmt(Tk,0)} °C`,`COP ${fmt(heat?c.Qk/c.W:c.cop,1)}`],
     range: idx?[0,LS.length-1]:null, focus:"all", hl:"all"});
   S.push({k:"evin",kicker:"Évaporateur",title:"Le fluide arrive froid, en mélange",
-    text:fridge?`Le fluide sort du capillaire à <b>${fmt(To,0)} °C</b> et ${fmt(Po,2)} bar. Ce n'est plus du liquide pur : environ <b>${fmt(c.x4*100,0)} % de vapeur</b> en masse, le reste en gouttelettes. Il est plus froid que le congélateur (${fmt(c.p.Tai,0)} °C) : il va pouvoir lui prendre de la chaleur.`
+    text:fridge?`Le fluide sort du capillaire à <b>${fmt(To,0)} °C</b> et ${fmt(Po,2)} bar. Ce n'est plus du liquide pur : environ <b>${fmt(c.x4*100,0)} % de vapeur</b> en masse, le reste en gouttelettes. Il est bien plus froid que l'intérieur du réfrigérateur (${fmt(c.p.Tai,0)} °C) : il va pouvoir lui prendre de la chaleur.`
       : heat?`Le liquide venu de la maison vient de passer dans le détendeur. Il entre dans la batterie extérieure à <b>${fmt(To,0)} °C</b>, avec ${fmt(c.x4*100,0)} % de vapeur. Il est plus froid que l'air dehors (${fmt(c.p.Tai,0)} °C) : l'air va pouvoir le réchauffer.`
       : `Le détendeur est dans l'unité extérieure. Le fluide en sort à <b>${fmt(To,0)} °C</b>, en mélange liquide-vapeur (${fmt(c.x4*100,0)} % de vapeur), et remonte par le petit tube jusqu'à l'unité intérieure. Il est bien plus froid que la pièce (${fmt(c.p.Tai,0)} °C).`,
     chips:chipsOf(p["4"],["mélange liquide-vapeur",`${fmt(c.x4*100,0)} % de vapeur`]), range:idx?[fridge?idx.x1-30:idx.x1,idx.ev0+Math.round((idx.ev1-idx.ev0)*0.05)]:null, focus:"end", pt:"4"});
   S.push({k:"evap",kicker:"Évaporateur",title:"Évaporation : le fluide bout et prend la chaleur",
-    text:`${evapWhere[0].toUpperCase()+evapWhere.slice(1)}, le liquide <b>bout à ${fmt(To,0)} °C</b>. Comme l'eau dans une casserole, mais à très basse température parce que la pression est basse (${fmt(Po,2)} bar). Pour bouillir il lui faut de la chaleur : il la prend à ${coldName}. ${fridge?"C'est exactement ça, « faire du froid ».":(heat?"Même froid, l'air dehors contient de la chaleur tant qu'il est plus chaud que le fluide.":`L'air soufflé ressort à ${fmt(a.eout?a.eout.T:To,0)} °C et l'humidité se condense sur les ailettes : c'est l'eau qui s'écoule du climatiseur.`)} Tant qu'il reste du liquide, la température ne bouge pas.`,
+    text:`${evapWhere[0].toUpperCase()+evapWhere.slice(1)}, le liquide <b>bout à ${fmt(To,0)} °C</b>. Comme l'eau dans une casserole, mais à très basse température parce que la pression est basse (${fmt(Po,2)} bar). Pour bouillir il lui faut de la chaleur : il la prend à ${coldName}. ${fridge?"C'est exactement ça, « faire du froid ». Le givre qui se forme sur la paroi fond quand le compresseur s'arrête : ce sont les gouttes qui coulent dans la petite gouttière du fond.":(heat?"Même froid, l'air dehors contient de la chaleur tant qu'il est plus chaud que le fluide.":`L'air soufflé ressort à ${fmt(a.eout?a.eout.T:To,0)} °C et l'humidité se condense sur les ailettes : c'est l'eau qui s'écoule du climatiseur.`)} Tant qu'il reste du liquide, la température ne bouge pas.`,
     chips:[`${fmt(To)} °C constant`,`${fmt(Po,2)} bar`,`${fmt(c.q0,0)} kJ pris par kg de fluide`], range:idx?[idx.ev0,idx.sat]:null, focus:"all", pts:["4","1'"]});
   S.push({k:"sh",kicker:"Évaporateur",title:"Surchauffe : la vapeur se réchauffe un peu",
     text:`La dernière goutte s'est évaporée. La vapeur continue à se réchauffer de <b>${fmt(c.p.SH,0)} °C</b> : c'est la surchauffe. Elle garantit qu'<b>aucune goutte de liquide</b> n'arrive au compresseur, qui ne sait comprimer que du gaz. ${fridge?"La vapeur descend ensuite vers le compresseur.":(heat?"Elle repasse par la vanne 4 voies puis par la bouteille anti-coup de liquide.":"Elle repart vers l'unité extérieure par le gros tube isolé.")}`,
@@ -1270,7 +1361,7 @@ function tourSteps(){
     text:`La vapeur à ${fmt(p["2"].T,0)} °C entre ${condWhere}. Au contact ${fridge?"de l'air de la cuisine":(heat?"de l'air de la pièce, soufflé par le ventilateur":"de l'air extérieur, aspiré par le ventilateur")} (${fmt(Thot,0)} °C), elle se refroidit jusqu'à <b>${fmt(Tk,0)} °C</b>, sa température de condensation. ${fridge?"C'est pour ça que l'arrière d'un frigo est chaud.":""}`,
     chips:chipsOf(p["2"],["vapeur",`${fmt(p["2"].T,0)} → ${fmt(Tk,0)} °C`]), range:idx?[fridge?idx.c1:idx.v1,idx.hv]:null, focus:"end", pts:["2","2'"]});
   S.push({k:"cond",kicker:"Condenseur",title:"Condensation : la vapeur redevient liquide",
-    text:`À <b>${fmt(Tk,0)} °C</b> et ${fmt(Pk,2)} bar, la vapeur se transforme en liquide, comme la buée sur une vitre froide. En se condensant, elle rend à ${hotName} toute la chaleur prise ${fridge?"au congélateur":(heat?"dehors":"à la pièce")}, plus celle apportée par le compresseur : <b>${fmt(c.Qk*(fridge?1000:1),fridge?0:1)} ${fridge?"W":"kW"}</b>.${heat?` L'air de la pièce ressort à ${fmt(a.cout.T,0)} °C.`:""}`,
+    text:`À <b>${fmt(Tk,0)} °C</b> et ${fmt(Pk,2)} bar, la vapeur se transforme en liquide, comme la buée sur une vitre froide. En se condensant, elle rend à ${hotName} toute la chaleur prise ${fridge?"à l'intérieur du réfrigérateur":(heat?"dehors":"à la pièce")}, plus celle apportée par le compresseur : <b>${fmt(c.Qk*(fridge?1000:1),fridge?0:1)} ${fridge?"W":"kW"}</b>.${heat?` L'air de la pièce ressort à ${fmt(a.cout.T,0)} °C.`:""}`,
     chips:[`${fmt(Tk)} °C constant`,`${fmt(Pk,2)} bar`,`${fmt(c.qk,0)} kJ rendus par kg`], range:idx?[idx.hv,idx.hl]:null, focus:"all", pts:["2'","3'"]});
   S.push({k:"sub",kicker:"Condenseur",title:"Sous-refroidissement : du liquide un peu plus froid",
     text:`Tout est liquide. Il se refroidit encore de <b>${fmt(c.p.SC,0)} °C</b>, jusqu'à ${fmt(p["3"].T,0)} °C. Ce liquide bien franc évite que des bulles se forment avant ${fridge?"le capillaire":"le détendeur"}. ${fridge?"Il traverse ensuite le filtre déshydrateur, qui retient l'humidité et les impuretés.":(heat?"Il redescend vers l'unité extérieure par le petit tube.":"")}`,
